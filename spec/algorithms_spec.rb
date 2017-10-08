@@ -132,54 +132,128 @@ RSpec.describe "ALGORITHMS" do
     
     end
 
-    describe "#binary_search_tree" do
+    context "binary search tree" do
 
-      it "returns a new values list containing the same elements" do
-        graph = GRAPH_BUILDER.new(values: values)
-        tree = graph.binary_search_tree(dimension: :x)
-        expect(tree.values).not_to be values
-        expect(tree.values).to eq values
-      end
-
-      it "sets the expected linkages" do
+      let(:b_tree_vals) do
         values = [5,1,10,0,2,15,12,17].map do |num|
           GRAPH_VALUE.new(dimensions: {x: num})
         end
-        graph = GRAPH_BUILDER.new(values: values)
-        tree = graph.binary_search_tree(dimension: :x)
-        # Visually it looks like this:
-        #            5
-        #           / \ 
-        #          1   10
-        #         / \    \
-        #        0   2   15
-        #                / \ 
-        #               12  17
-        #
-        five, one, ten, zero, two, fifteen, twelve, seventeen = values
-        # confirm root node
-        expect(tree.root_val).to eq(five)
-        expect(tree.root_val.linkages[:parent]).to be_nil
-        # confirm :parent linkages
-        expect_parent = ->(expected) do
-          ->(node) { expect(node.linkages[:parent]).to eq expected }
-        end
-        [one,ten].each &expect_parent.call(five)
-        [zero, two].each &expect_parent.call(one)
-        [twelve, seventeen].each &expect_parent.call(fifteen)
-        [fifteen].each &expect_parent.call(ten)
-
-        # confirm :left and :right linkages
-        expect(five.linkages[:left]).to eq(one)
-        expect(five.linkages[:right]).to eq(ten)
-        expect(one.linkages[:left]).to eq(zero)
-        expect(one.linkages[:right]).to eq(two)
-        expect(ten.linkages[:right]).to eq(fifteen)
-        expect(fifteen.linkages[:left]).to eq(twelve)
-        expect(fifteen.linkages[:right]).to eq(seventeen)
       end
 
-    end
+      describe "#binary_search_tree" do
+
+
+        it "returns a new values list containing the same elements" do
+          graph = GRAPH_BUILDER.new(values: values)
+          tree = graph.binary_search_tree(dimension: :x)
+          expect(tree.values).not_to be values
+          expect(tree.values).to eq values
+        end
+
+        it "sets the expected linkages" do
+          graph = GRAPH_BUILDER.new(values: b_tree_vals)
+          tree = graph.binary_search_tree(dimension: :x)
+          # Visually it looks like this:
+          #            5
+          #           / \ 
+          #          1   10
+          #         / \    \
+          #        0   2   15
+          #                / \ 
+          #               12  17
+          #
+          five, one, ten, zero, two, fifteen, twelve, seventeen = b_tree_vals
+          # confirm root node
+          expect(tree.root_val).to eq(five)
+          expect(tree.root_val.linkages[:parent]).to be_nil
+          # confirm :parent linkages
+          expect_parent = ->(expected) do
+            ->(node) { expect(node.linkages[:parent]).to eq expected }
+          end
+          [one,ten].each &expect_parent.call(five)
+          [zero, two].each &expect_parent.call(one)
+          [twelve, seventeen].each &expect_parent.call(fifteen)
+          [fifteen].each &expect_parent.call(ten)
+
+          # confirm :left and :right linkages
+          expect(five.linkages[:left]).to eq(one)
+          expect(five.linkages[:right]).to eq(ten)
+          expect(one.linkages[:left]).to eq(zero)
+          expect(one.linkages[:right]).to eq(two)
+          expect(ten.linkages[:right]).to eq(fifteen)
+          expect(fifteen.linkages[:left]).to eq(twelve)
+          expect(fifteen.linkages[:right]).to eq(seventeen)
+        end
+
+      end
+
+      describe "#to_sorted_order" do
+        it "sorts into the expected order." do
+          graph = GRAPH_BUILDER.new(values: b_tree_vals)
+          b_search_tree = graph.binary_search_tree(dimension: :x)
+          ordered_vals = b_search_tree.to_sorted_order
+          expect(ordered_vals.values.map { |val| val.dimensions[:x]}).to eq(
+            [0,1,2,5,10,12,15,17]
+          )
+        end
+      end
+
+      describe "#to_original_order" do
+        it "sorts into the expected order" do
+          graph = GRAPH_BUILDER.new(values: b_tree_vals)
+          b_search_tree = graph.binary_search_tree(dimension: :x)
+          ordered_vals = b_search_tree.to_original_order
+          expect(ordered_vals.values.map { |val| val.dimensions[:x]}).to eq(
+            [5, 1, 10, 0, 2, 15, 12, 17] 
+          )
+        end
+      end
+
+      describe "#depth_first_iteration" do
+        it "traverses in vertical-priority order (sorted order)" do
+          graph = GRAPH_BUILDER.new(values: b_tree_vals)
+          b_search_tree = graph.binary_search_tree(dimension: :x)
+          result = b_search_tree.depth_first_iteration([]) do |memo, val|
+            memo.push val.dimensions[:x]
+          end
+          expect(result).to eq [0,1,2,5,10,12,15,17]
+        end
+      end
+
+      describe "#breadth_first_iteration" do
+        it "traverses in horizontal-priority order (original order)" do
+          graph = GRAPH_BUILDER.new(values: b_tree_vals)
+          b_search_tree = graph.binary_search_tree(dimension: :x)
+          result = b_search_tree.breadth_first_iteration([]) do |memo, val|
+            memo.push val.dimensions[:x]
+          end
+          expect(result).to eq [5, 1, 10, 0, 2, 15, 12, 17]
+        end
+      end
+
+      describe "#insert_into_search_tree" do
+        it "inserts at the correct place" do
+          graph = GRAPH_BUILDER.new(values: b_tree_vals)
+          b_search_tree = graph.binary_search_tree(dimension: :x)
+          six = GRAPH_VALUE.new(dimensions: {x: 6})
+          new_tree = b_search_tree.insert_into_search_tree(six) do |val, other_node|
+            val.dimensions[:x] < other_node.dimensions[:x]
+          end
+          expect(new_tree.to_sorted_order.values.map do |x|
+            x.dimensions[:x]
+          end).to eq([0,1,2,5,6, 10,12,15,17])
+          eleven = GRAPH_VALUE.new(dimensions: {x: 11})
+          new_tree = b_search_tree.insert_into_search_tree(eleven) do |val, other_node|
+            val.dimensions[:x] < other_node.dimensions[:x]
+          end
+          expect(new_tree.to_sorted_order.values.map do |x|
+            x.dimensions[:x]
+          end).to eq([0,1,2,5,6, 10, 11,12,15,17])
+
+        end
+      end
+   
+    end # context
 
   end
 

@@ -125,14 +125,85 @@ class ALGORITHMS::GRAPH_BUILDER
 		val
 	end
 
+	def insert_into_search_tree(val_to_add, &comparator)
+		insert_into_search_tree_step(root_val, val_to_add, &comparator)
+	end
+
+	def insert_into_search_tree_step(root_node, val_to_add, &comparator)
+		# helper 1
+		recurse_fn = ->(direction) do
+			insert_into_search_tree_step(
+				root_node.linkages[direction], val_to_add, &comparator
+			)
+		end
+		# helper 2
+		do_insert_fn = ->(direction) do
+			root_node.linkages[direction] = val_to_add
+			val_to_add.linkages[:parent] = root_node
+		end
+		# helper 3
+		recurse_or_insert_fn = ->(direction) do
+			if root_node.linkages[direction]
+				recurse_fn.call(direction)
+			else
+				do_insert_fn.call(direction)
+			end
+		end
+		# meat of the matter
+		if comparator.call(val_to_add, root_node)
+			recurse_or_insert_fn.call :left
+		else
+			recurse_or_insert_fn.call :right
+		end
+		self
+	end
+
+	def to_sorted_order
+		values = depth_first_iteration([]) { |memo, val| memo.push val }
+		self.class.new(values: values)
+	end
+
+	def to_original_order
+		values = breadth_first_iteration([]) { |memo, val| memo.push val }
+		self.class.new(values: values)
+	end
+
+	def depth_first_iteration(memo, &blk)
+		depth_first_iteration_step root_val, memo, &blk
+	end
+
+	def depth_first_iteration_step(root, memo, &blk)
+		left_linkage = root.linkages[:left]
+		right_linkage = root.linkages[:right]
+		if left_linkage
+			depth_first_iteration_step(left_linkage, memo, &blk)
+		end
+		blk.call(memo, root)
+		if right_linkage
+			depth_first_iteration_step(right_linkage, memo, &blk)
+		end
+		memo		
+	end
+
+	def breadth_first_iteration(memo, &blk)
+		blk.call(memo, root_val)
+		nodes_queue = [root_val.linkages[:left], root_val.linkages[:right]]
+		breadth_first_iteration_step(memo, nodes_queue, &blk) 
+	end
+
+	def breadth_first_iteration_step(memo, nodes_queue, &blk)
+		return memo if nodes_queue.empty?
+		nodes_queue.length.times do
+			node = nodes_queue.shift
+			blk.call(memo, node)
+			next_nodes = [node.linkages[:left], node.linkages[:right]].compact
+			nodes_queue.push(*next_nodes)
+		end
+		breadth_first_iteration_step(memo, nodes_queue, &blk)
+	end
+
 end
 
-# ========================================================================
-# searches for target in graph, optimizating horizontal distance covered.
-# ========================================================================
-class ALGORITHMS::BREADTH_FIRST_SEARCH
-
-end
 
 # ========================================================================
 # searches for target in graph, optimizating vertical distance covered.
